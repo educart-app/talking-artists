@@ -8,29 +8,27 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 const HF_API_KEY = process.env.HF_API_KEY;
+const HF_MODEL = "tiiuae/falcon-7b-instruct";
+
+if (!HF_API_KEY) {
+  console.error("❌ Errore: HF_API_KEY non definita nel file .env");
+  process.exit(1);
+}
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.post("/api/chat", async (req, res) => {
-  const { message, artist } = req.body;
-
-  const prompt = `Tu sei ${artist}, un grande artista del passato. Rispondi alla seguente domanda nel tuo stile, come se fossi in vita nel presente:\nDomanda: ${message}\nRisposta:`;
-
-  console.log("\n[DEBUG] Artista:", artist);
-  console.log("[DEBUG] Messaggio:", message);
-  console.log("[DEBUG] Prompt inviato al modello:", prompt);
-  console.log("[DEBUG] API Key:", HF_API_KEY ? "✅ Presente" : "❌ MANCANTE");
-
+// Funzione di richiesta Hugging Face
+async function fetchHuggingFaceResponse(prompt) {
   try {
     const response = await axios.post(
-      "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
       {
         inputs: prompt,
         parameters: {
           max_new_tokens: 150,
-          temperature: 0.8,
+          temperature: 0.7,
           return_full_text: false
         }
       },
@@ -42,25 +40,51 @@ app.post("/api/chat", async (req, res) => {
       }
     );
 
-    const hfOutput = response.data;
-
-    console.log("[DEBUG] Risposta Hugging Face:", hfOutput);
-
-    const generatedText = hfOutput?.[0]?.generated_text?.trim();
-
-    if (!generatedText) {
-      console.error("[DEBUG] Nessuna risposta generata dal modello.");
-      throw new Error("Nessuna risposta generata dal modello.");
-    }
-
-    res.json({ reply: generatedText });
+    const output = response.data?.[0]?.generated_text?.trim();
+    return output || null;
 
   } catch (err) {
-    console.error("[ERRORE] Comunicazione fallita con Hugging Face:", err.message);
-    res.status(500).json({
-      reply: "Errore nella comunicazione con l'artista. Riprova più tardi."
+    console.error("[ERRORE] Errore richiesta Hugging Face:", err.message);
+    return null;
+  }
+}
+
+// Endpoint /api/chat
+app.post("/api/chat", async (req, res) => {
+  const { message, artist } = req.body;
+
+  if (!message?.trim() || !artist?.trim()) {
+    return res.status(400).json({
+      reply: "Richiesta non valida. 'artist' e 'message' sono obbligatori."
     });
   }
+
+  const primaryPrompt = `Immagina di essere ${artist}. Rispondi alla seguente domanda come faresti tu:\n${message}`;
+  console.log("\n[DEBUG] Artista:", artist);
+  console.log("[DEBUG] Messaggio:", message);
+  console.log("[DEBUG] Prompt 1:", primaryPrompt);
+
+  let reply = await fetchHuggingFaceResponse(primaryPrompt);
+
+  // Retry automatico se prima risposta è nulla o troppo corta
+  if (!reply || reply.length < 10) {
+    console.warn("[DEBUG] Prima risposta insufficiente. Ritento con prompt alternativo...");
+
+    const retryPrompt = `Rispondi come se fossi ${artist}. Domanda: ${message}`;
+    console.log("[DEBUG] Prompt 2 (retry):", retryPrompt);
+
+    reply = await fetchHuggingFaceResponse(retryPrompt);
+  }
+
+  // Se ancora nulla, restituisci errore user-friendly
+  if (!reply) {
+    return res.status(502).json({
+      reply: `Mi dispiace, ${artist} al momento non riesce a rispondere. Prova a riformulare la domanda.`
+    });
+  }
+
+  console.log("[DEBUG] Risposta finale:", reply);
+  res.json({ reply });
 });
 
 // Catch-all per SPA
