@@ -8,7 +8,6 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 const HF_API_KEY = process.env.HF_API_KEY;
-const HF_MODEL = "tiiuae/falcon-7b-instruct"; // Modello compatibile con text generation
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -17,11 +16,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
-  if (!message || !artist) {
-    return res.status(400).json({ reply: "Richiesta non valida. Artist e message sono obbligatori." });
-  }
-
-  const prompt = `Immagina di essere ${artist}. Rispondi alla seguente domanda come faresti tu:\n${message}`;
+  const prompt = `Tu sei ${artist}, un grande artista del passato. Rispondi alla seguente domanda nel tuo stile, come se fossi in vita nel presente:\nDomanda: ${message}\nRisposta:`;
 
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
@@ -30,12 +25,12 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     const response = await axios.post(
-      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
+      "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
       {
         inputs: prompt,
         parameters: {
           max_new_tokens: 150,
-          temperature: 0.7,
+          temperature: 0.8,
           return_full_text: false
         }
       },
@@ -47,16 +42,18 @@ app.post("/api/chat", async (req, res) => {
       }
     );
 
-    console.log("[DEBUG] Risposta Hugging Face:", response.data);
+    const hfOutput = response.data;
 
-    const generatedText = response.data?.[0]?.generated_text;
+    console.log("[DEBUG] Risposta Hugging Face:", hfOutput);
+
+    const generatedText = hfOutput?.[0]?.generated_text?.trim();
 
     if (!generatedText) {
       console.error("[DEBUG] Nessuna risposta generata dal modello.");
       throw new Error("Nessuna risposta generata dal modello.");
     }
 
-    res.json({ reply: generatedText.trim() });
+    res.json({ reply: generatedText });
 
   } catch (err) {
     console.error("[ERRORE] Comunicazione fallita con Hugging Face:", err.message);
@@ -72,5 +69,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n✅ Server in ascolto su http://localhost:${PORT}`);
+  console.log(`✅ Server in ascolto su http://localhost:${PORT}`);
 });
