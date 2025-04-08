@@ -8,11 +8,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 const HF_API_KEY = process.env.HF_API_KEY;
-
-if (!HF_API_KEY) {
-  console.error("❌ API Key Hugging Face mancante. Imposta HF_API_KEY nel file .env");
-  process.exit(1);
-}
+const HF_MODEL = "tiiuae/falcon-7b-instruct"; // Modello compatibile con text generation
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -21,8 +17,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
-  if (!artist || !message) {
-    return res.status(400).json({ reply: "Dati mancanti. Specifica artista e messaggio." });
+  if (!message || !artist) {
+    return res.status(400).json({ reply: "Richiesta non valida. Artist e message sono obbligatori." });
   }
 
   const prompt = `Immagina di essere ${artist}. Rispondi alla seguente domanda come faresti tu:\n${message}`;
@@ -34,39 +30,37 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     const response = await axios.post(
-      "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
+      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
       {
-        inputs: prompt, // CORRETTO: non serve { text: ... }
+        inputs: prompt,
         parameters: {
-          max_new_tokens: 100,
+          max_new_tokens: 150,
           temperature: 0.7,
+          return_full_text: false
         }
       },
       {
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
           "Content-Type": "application/json"
-        },
+        }
       }
     );
 
-    const generatedText = response.data.generated_text;
+    console.log("[DEBUG] Risposta Hugging Face:", response.data);
+
+    const generatedText = response.data?.[0]?.generated_text;
 
     if (!generatedText) {
       console.error("[DEBUG] Nessuna risposta generata dal modello.");
-      return res.status(502).json({ reply: "Il modello non ha generato alcuna risposta." });
+      throw new Error("Nessuna risposta generata dal modello.");
     }
 
-    console.log("[DEBUG] Risposta generata:", generatedText);
-    res.json({ reply: generatedText });
+    res.json({ reply: generatedText.trim() });
 
   } catch (err) {
     console.error("[ERRORE] Comunicazione fallita con Hugging Face:", err.message);
-    if (err.response) {
-      console.error("[DEBUG] Stato:", err.response.status);
-      console.error("[DEBUG] Risposta:", err.response.data);
-    }
-    res.status(503).json({
+    res.status(500).json({
       reply: "Errore nella comunicazione con l'artista. Riprova più tardi."
     });
   }
