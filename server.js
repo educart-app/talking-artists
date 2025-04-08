@@ -28,11 +28,11 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const prompt = `Sei ${artist}, l'artista storico. Rispondi come faresti tu, in prima persona, con tono coerente con il tuo periodo storico.\n\nDomanda: ${message}\nRisposta:`;
+  const prompt = `Rispondi in modo sintetico, diretto e storico come se fossi ${artist}. Non divagare, non rispondere a più domande, concentrati solo su questa:\nDomanda: ${message}\nRisposta:`;
 
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
-  console.log("[DEBUG] Prompt inviato al modello:", prompt);
+  console.log("[DEBUG] Prompt inviato:", prompt);
 
   try {
     const response = await axios.post(
@@ -40,8 +40,9 @@ app.post("/api/chat", async (req, res) => {
       {
         inputs: prompt,
         parameters: {
-          max_new_tokens: 200,
-          temperature: 0.7,
+          max_new_tokens: 80,
+          temperature: 0.5,
+          top_p: 0.95,
           return_full_text: false
         }
       },
@@ -53,14 +54,14 @@ app.post("/api/chat", async (req, res) => {
       }
     );
 
-    const generatedText = response.data?.[0]?.generated_text?.trim();
+    const reply = response.data?.[0]?.generated_text?.trim();
 
-    if (!generatedText) {
+    if (!reply) {
       throw new Error("Nessuna risposta generata dal modello.");
     }
 
-    console.log("[DEBUG] Risposta Hugging Face:", generatedText);
-    res.json({ reply: generatedText });
+    console.log("[DEBUG] Risposta Zephyr:", reply);
+    res.json({ reply });
 
   } catch (err) {
     console.error("[ERRORE] Comunicazione con Hugging Face fallita:", err.message);
