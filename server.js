@@ -13,6 +13,11 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+//// LOG
+console.log("Risposta Hugging Face:", response.data);
+console.log("API Key:", HF_API_KEY);
+
+
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
