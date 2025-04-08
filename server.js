@@ -7,11 +7,11 @@ require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = "gpt-3.5-turbo"; // puoi usare anche "gpt-4" se disponibile
+const HF_API_KEY = process.env.HF_API_KEY;
+const HF_MODEL = "HuggingFaceH4/zephyr-7b-alpha";
 
-if (!OPENAI_API_KEY) {
-  console.error("❌ Errore: OPENAI_API_KEY non definita nel file .env");
+if (!HF_API_KEY) {
+  console.error("❌ Errore: HF_API_KEY non definita nel file .env");
   process.exit(1);
 }
 
@@ -28,44 +28,42 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const systemPrompt = `Sei ${artist}, l'artista storico. Rispondi come faresti tu, in prima persona, con tono coerente con il tuo periodo storico.`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: message }
-  ];
+  const prompt = `Sei ${artist}, l'artista storico. Rispondi come faresti tu, in prima persona, con tono coerente con il tuo periodo storico.\n\nDomanda: ${message}\nRisposta:`;
 
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
-  console.log("[DEBUG] System prompt:", systemPrompt);
+  console.log("[DEBUG] Prompt inviato al modello:", prompt);
 
   try {
     const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
       {
-        model: OPENAI_MODEL,
-        messages,
-        temperature: 0.7,
-        max_tokens: 200
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 200,
+          temperature: 0.7,
+          return_full_text: false
+        }
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${HF_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
     );
 
-    const reply = response.data.choices?.[0]?.message?.content?.trim();
-    if (!reply) {
-      throw new Error("Nessuna risposta generata da OpenAI.");
+    const generatedText = response.data?.[0]?.generated_text?.trim();
+
+    if (!generatedText) {
+      throw new Error("Nessuna risposta generata dal modello.");
     }
 
-    console.log("[DEBUG] Risposta OpenAI:", reply);
-    res.json({ reply });
+    console.log("[DEBUG] Risposta Hugging Face:", generatedText);
+    res.json({ reply: generatedText });
 
   } catch (err) {
-    console.error("[ERRORE] Comunicazione con OpenAI fallita:", err.message);
+    console.error("[ERRORE] Comunicazione con Hugging Face fallita:", err.message);
     res.status(500).json({
       reply: `Errore nella comunicazione con ${artist}. Riprova più tardi.`
     });
