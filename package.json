@@ -1,7 +1,7 @@
 {
   "name": "talking-artists",
-  "version": "1.1.0",
-  "description": "Web app didattica per parlare con artisti simulati usando modelli AI Hugging Face",
+  "version": "1.2.0",
+  "description": "Web app didattica per parlare con artisti simulati usando modelli AI di Hugging Face (Mistral)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -23,8 +23,9 @@
     "educazione",
     "arte",
     "express",
-    "zephyr",
-    "LLM"
+    "mistral",
+    "LLM",
+    "didattica"
   ],
   "author": "Educart",
   "license": "MIT"
