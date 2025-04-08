@@ -19,6 +19,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Context memory (breve) per artista → sessione semplice in RAM (espandibile in futuro)
+const memory = {}; // { [artist]: [pastMessages] }
+
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
@@ -28,17 +31,20 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-const prompt = `
-ISTRUZIONI:
-Rispondi come se fossi ${artist}, un artista storico.
-- Rispondi solo e soltanto alla domanda, in una o due frasi al massimo, limita la quantità di parole non necessarie.
-- Non corregere o modificare la domanda, non generare per nessun motivo nuove domande o continuazioni.
-- Rispondi in prima persona, in italiano moderno e comprensibile.
-- Mantieni il tuo stile coerente con la tua epoca storica.
-- Non usare frasi del tipo "Domanda:" o "Risposta:" nella tua risposta.
+  // Manteniamo breve cronologia (max 3 scambi)
+  if (!memory[artist]) memory[artist] = [];
+  memory[artist].push(`Utente: ${message}`);
+  if (memory[artist].length > 6) memory[artist] = memory[artist].slice(-6);
 
-DOMANDA: ${message}
-`.trim();
+  const context = memory[artist].join("\n");
+
+  const prompt = `
+Sei ${artist}, un artista storico.
+Rispondi in prima persona, in italiano moderno, con uno stile coerente alla tua epoca ma senza usare un linguaggio arcaico.
+Rispondi solo alla seguente domanda senza aggiungere nulla, sii chiaro e conciso:
+
+${context}
+${artist}:`.trim();
 
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
@@ -50,10 +56,10 @@ DOMANDA: ${message}
       {
         inputs: prompt,
         parameters: {
-          max_new_tokens: 120,
+          max_new_tokens: 100,
           temperature: 0.5,
           top_p: 0.95,
-          return_full_text: false
+          return_full_text: true
         }
       },
       {
@@ -64,13 +70,16 @@ DOMANDA: ${message}
       }
     );
 
-    const reply = response.data?.[0]?.generated_text?.trim();
+    const rawOutput = response.data?.[0]?.generated_text || "";
+    const reply = rawOutput.split(`${artist}:`).pop().trim();
 
-    if (!reply) {
-      throw new Error("Nessuna risposta generata dal modello.");
+    if (!reply || reply.length < 5) {
+      throw new Error("Risposta troppo breve o vuota");
     }
 
     console.log("[DEBUG] Risposta Zephyr:", reply);
+    memory[artist].push(`${artist}: ${reply}`);
+
     res.json({ reply });
 
   } catch (err) {
