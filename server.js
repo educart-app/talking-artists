@@ -19,8 +19,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Memoria contestuale semplice per ogni artista
-const memory = {}; // { [artist]: [messaggi passati] }
+// Memoria breve per ogni artista
+const memory = {}; // { [artist]: [pastMessages] }
 
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
@@ -31,21 +31,26 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  // Gestione memoria breve per artista
+  // Memorizza brevemente lo scambio per contesto (max 3 turni)
   if (!memory[artist]) memory[artist] = [];
   memory[artist].push(`Utente: ${message}`);
   if (memory[artist].length > 6) memory[artist] = memory[artist].slice(-6);
+
   const context = memory[artist].join("\n");
 
-  // Prompt ottimizzato per Mistral
   const prompt = `
-Sei ${artist}, un artista storico.
-Rispondi sempre in prima persona, con uno stile coerente con la tua epoca, ma in italiano moderno e comprensibile.
-Non rispondere a più domande, non generare nuove domande, non divagare.
-Rispondi in modo chiaro e conciso solo alla domanda corrente.
+ISTRUZIONI PER IL MODELLO:
+- Rispondi come se fossi ${artist}, in prima persona.
+- Rispondi in italiano moderno e comprensibile.
+- Sii sintetico e preciso. Non divagare. Non continuare con nuove domande o argomenti.
+- Rispondi solo alla domanda dell'utente. Non ripetere o correggere la domanda.
+- Mantieni il tuo tono coerente con il tuo periodo storico.
 
+Contesto recente della conversazione:
 ${context}
-${artist}:`.trim();
+
+${artist}:
+`.trim();
 
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
@@ -57,8 +62,8 @@ ${artist}:`.trim();
       {
         inputs: prompt,
         parameters: {
-          max_new_tokens: 100,
-          temperature: 0.5,
+          max_new_tokens: 120,
+          temperature: 0.4,
           top_p: 0.9,
           return_full_text: true
         }
