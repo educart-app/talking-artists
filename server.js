@@ -8,7 +8,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 const HF_API_KEY = process.env.HF_API_KEY;
-const HF_MODEL = "HuggingFaceH4/zephyr-7b-alpha";
+const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2";
 
 if (!HF_API_KEY) {
   console.error("❌ Errore: HF_API_KEY non definita nel file .env");
@@ -19,8 +19,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Context memory (breve) per artista → sessione semplice in RAM (espandibile in futuro)
-const memory = {}; // { [artist]: [pastMessages] }
+// Memoria contestuale semplice per ogni artista
+const memory = {}; // { [artist]: [messaggi passati] }
 
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
@@ -31,17 +31,18 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  // Manteniamo breve cronologia (max 3 scambi)
+  // Gestione memoria breve per artista
   if (!memory[artist]) memory[artist] = [];
   memory[artist].push(`Utente: ${message}`);
   if (memory[artist].length > 6) memory[artist] = memory[artist].slice(-6);
-
   const context = memory[artist].join("\n");
 
+  // Prompt ottimizzato per Mistral
   const prompt = `
 Sei ${artist}, un artista storico.
-Rispondi in prima persona, in italiano moderno, con uno stile coerente alla tua epoca ma senza usare un linguaggio arcaico.
-Rispondi solo alla seguente domanda senza aggiungere nulla, sii chiaro e conciso:
+Rispondi sempre in prima persona, con uno stile coerente con la tua epoca, ma in italiano moderno e comprensibile.
+Non rispondere a più domande, non generare nuove domande, non divagare.
+Rispondi in modo chiaro e conciso solo alla domanda corrente.
 
 ${context}
 ${artist}:`.trim();
@@ -58,7 +59,7 @@ ${artist}:`.trim();
         parameters: {
           max_new_tokens: 100,
           temperature: 0.5,
-          top_p: 0.95,
+          top_p: 0.9,
           return_full_text: true
         }
       },
@@ -77,7 +78,7 @@ ${artist}:`.trim();
       throw new Error("Risposta troppo breve o vuota");
     }
 
-    console.log("[DEBUG] Risposta Zephyr:", reply);
+    console.log("[DEBUG] Risposta Mistral:", reply);
     memory[artist].push(`${artist}: ${reply}`);
 
     res.json({ reply });
