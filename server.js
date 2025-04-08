@@ -7,11 +7,11 @@ require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const HF_API_KEY = process.env.HF_API_KEY;
-const HF_MODEL = "tiiuae/falcon-7b-instruct";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = "gpt-3.5-turbo"; // puoi usare anche "gpt-4" se disponibile
 
-if (!HF_API_KEY) {
-  console.error("❌ Errore: HF_API_KEY non definita nel file .env");
+if (!OPENAI_API_KEY) {
+  console.error("❌ Errore: OPENAI_API_KEY non definita nel file .env");
   process.exit(1);
 }
 
@@ -19,37 +19,6 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Funzione di richiesta Hugging Face
-async function fetchHuggingFaceResponse(prompt) {
-  try {
-    const response = await axios.post(
-      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
-      {
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 150,
-          temperature: 0.7,
-          return_full_text: false
-        }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    const output = response.data?.[0]?.generated_text?.trim();
-    return output || null;
-
-  } catch (err) {
-    console.error("[ERRORE] Errore richiesta Hugging Face:", err.message);
-    return null;
-  }
-}
-
-// Endpoint /api/chat
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
@@ -59,32 +28,48 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const primaryPrompt = `Immagina di essere ${artist}. Rispondi alla seguente domanda come faresti tu:\n${message}`;
+  const systemPrompt = `Sei ${artist}, l'artista storico. Rispondi come faresti tu, in prima persona, con tono coerente con il tuo periodo storico.`;
+
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: message }
+  ];
+
   console.log("\n[DEBUG] Artista:", artist);
   console.log("[DEBUG] Messaggio:", message);
-  console.log("[DEBUG] Prompt 1:", primaryPrompt);
+  console.log("[DEBUG] System prompt:", systemPrompt);
 
-  let reply = await fetchHuggingFaceResponse(primaryPrompt);
+  try {
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: OPENAI_MODEL,
+        messages,
+        temperature: 0.7,
+        max_tokens: 200
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-  // Retry automatico se prima risposta è nulla o troppo corta
-  if (!reply || reply.length < 10) {
-    console.warn("[DEBUG] Prima risposta insufficiente. Ritento con prompt alternativo...");
+    const reply = response.data.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      throw new Error("Nessuna risposta generata da OpenAI.");
+    }
 
-    const retryPrompt = `Rispondi come se fossi ${artist}. Domanda: ${message}`;
-    console.log("[DEBUG] Prompt 2 (retry):", retryPrompt);
+    console.log("[DEBUG] Risposta OpenAI:", reply);
+    res.json({ reply });
 
-    reply = await fetchHuggingFaceResponse(retryPrompt);
-  }
-
-  // Se ancora nulla, restituisci errore user-friendly
-  if (!reply) {
-    return res.status(502).json({
-      reply: `Mi dispiace, ${artist} al momento non riesce a rispondere. Prova a riformulare la domanda.`
+  } catch (err) {
+    console.error("[ERRORE] Comunicazione con OpenAI fallita:", err.message);
+    res.status(500).json({
+      reply: `Errore nella comunicazione con ${artist}. Riprova più tardi.`
     });
   }
-
-  console.log("[DEBUG] Risposta finale:", reply);
-  res.json({ reply });
 });
 
 // Catch-all per SPA
@@ -93,5 +78,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server in ascolto su http://localhost:${PORT}`);
+  console.log(`✅ Server avviato su http://localhost:${PORT}`);
 });
