@@ -62,7 +62,7 @@ ${artist}:
       {
         inputs: prompt,
         parameters: {
-          max_new_tokens: 120,
+          max_new_tokens: 240,
           temperature: 0.4,
           top_p: 0.9,
           return_full_text: true
