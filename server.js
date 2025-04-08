@@ -31,8 +31,8 @@ app.post("/api/chat", async (req, res) => {
 const prompt = `
 ISTRUZIONI:
 Rispondi come se fossi ${artist}, un artista storico.
-- Rispondi solo alla domanda, in una o due frasi al massimo.
-- Non generare nuove domande o continuazioni.
+- Rispondi solo alla domanda, in una o due frasi al massimo, limita la quantità di parole non necessarie.
+- Non corregere o modificare la domanda, non generare nuove domande o continuazioni.
 - Rispondi in prima persona, in italiano moderno e comprensibile.
 - Mantieni il tuo stile coerente con la tua epoca storica.
 - Non usare frasi del tipo "Domanda:" o "Risposta:" nella tua risposta.
@@ -50,7 +50,7 @@ DOMANDA: ${message}
       {
         inputs: prompt,
         parameters: {
-          max_new_tokens: 80,
+          max_new_tokens: 120,
           temperature: 0.5,
           top_p: 0.95,
           return_full_text: false
