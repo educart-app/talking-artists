@@ -1,7 +1,7 @@
 {
   "name": "talking-artists",
-  "version": "1.0.0",
-  "description": "Web app didattica per parlare con artisti simulati usando modelli AI (OpenAI)",
+  "version": "1.1.0",
+  "description": "Web app didattica per parlare con artisti simulati usando modelli AI Hugging Face",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -19,11 +19,12 @@
   "keywords": [
     "AI",
     "chatbot",
-    "openai",
+    "huggingface",
     "educazione",
     "arte",
     "express",
-    "gpt"
+    "zephyr",
+    "LLM"
   ],
   "author": "Educart",
   "license": "MIT"
