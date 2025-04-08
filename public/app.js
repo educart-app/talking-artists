@@ -1,99 +1,114 @@
-let currentArtist = "";
-let chatLog = [];
-let speechEnabled = false;
+const chatBox = document.getElementById("chat-box");
+const userInput = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+const startChatBtn = document.getElementById("start-chat");
+const artistInput = document.getElementById("artist-input");
+const artistDropdown = document.getElementById("artist-dropdown");
+const voiceToggle = document.getElementById("voice-toggle");
+const downloadBtn = document.getElementById("download-btn");
+const emailBtn = document.getElementById("email-btn");
 
-document.addEventListener("DOMContentLoaded", () => {
-  const startBtn = document.getElementById("startBtn");
-  const askBtn = document.getElementById("askBtn");
-  const userInput = document.getElementById("userInput");
-  const chatBox = document.getElementById("chatBox");
-  const speakToggle = document.getElementById("toggleSpeech");
-  const downloadBtn = document.getElementById("downloadChat");
-  const emailBtn = document.getElementById("emailChat");
+let conversationHistory = [];
+let selectedArtist = "";
 
-  startBtn.addEventListener("click", () => {
-    const artistSelect = document.getElementById("artistSelect");
-    const artistInput = document.getElementById("artistInput");
-    currentArtist = artistInput.value.trim() || artistSelect.value;
+// Avvio della conversazione
+startChatBtn.addEventListener("click", () => {
+  selectedArtist = artistInput.value.trim() || artistDropdown.value;
+  if (!selectedArtist) {
+    alert("Seleziona o scrivi il nome di un artista.");
+    return;
+  }
 
-    if (!currentArtist) {
-      alert("Scegli o inserisci un artista!");
-      return;
-    }
+  document.getElementById("artist-selection").classList.add("hidden");
+  document.getElementById("chat-section").classList.remove("hidden");
 
-    document.getElementById("setup").style.display = "none";
-    document.getElementById("chatSection").style.display = "block";
-
-    appendMessage("Sistema", `Parli ora con ${currentArtist}. Cosa vuoi chiedergli?`);
-  });
-
-  askBtn.addEventListener("click", inviaDomanda);
-  userInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") inviaDomanda();
-  });
-
-  speakToggle.addEventListener("click", () => {
-    speechEnabled = !speechEnabled;
-    speakToggle.textContent = speechEnabled ? "🔊 Voce ON" : "🔇 Voce OFF";
-  });
-
-  downloadBtn.addEventListener("click", scaricaConversazione);
-  emailBtn.addEventListener("click", condividiViaEmail);
+  const welcomeMessage = `Parli ora con ${selectedArtist}. Cosa vuoi chiedergli?`;
+  addMessage(welcomeMessage, "bot");
+  conversationHistory = [`Tu stai parlando con ${selectedArtist}.`];
 });
 
-function appendMessage(sender, text) {
-  const chatBox = document.getElementById("chatBox");
-  const messageDiv = document.createElement("div");
-  messageDiv.classList.add("message");
-  messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  chatBox.appendChild(messageDiv);
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  chatLog.push(`${sender}: ${text}`);
-
-  if (sender !== "Tu" && speechEnabled) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "it-IT";
-    speechSynthesis.speak(utterance);
-  }
-}
-
-async function inviaDomanda() {
-  const input = document.getElementById("userInput");
-  const message = input.value.trim();
+// Invia messaggio
+sendBtn.addEventListener("click", async () => {
+  const message = userInput.value.trim();
   if (!message) return;
 
-  appendMessage("Tu", message);
-  input.value = "";
+  addMessage(message, "user");
+  userInput.value = "";
 
+  conversationHistory.push(`Utente: ${message}`);
+
+  const loadingMsg = addMessage("...", "bot");
+
+  const response = await queryHuggingFace(message, selectedArtist);
+
+  loadingMsg.remove();
+
+  if (response) {
+    const finalResponse = `${selectedArtist}: ${response}`;
+    conversationHistory.push(finalResponse);
+    addMessage(response, "bot");
+
+    if (voiceToggle.checked) {
+      speak(response);
+    }
+  } else {
+    addMessage("Errore nella comunicazione con l'artista. Riprova più tardi.", "bot");
+  }
+});
+
+// Aggiunge messaggi alla chat
+function addMessage(text, sender) {
+  const msg = document.createElement("div");
+  msg.classList.add("message", sender);
+  msg.textContent = text;
+  chatBox.appendChild(msg);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  return msg;
+}
+
+// ✅ Chiamata corretta al backend
+async function queryHuggingFace(message, artist) {
   try {
     const response = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, artist: currentArtist })
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message, artist })
     });
 
     const data = await response.json();
-    appendMessage(currentArtist, data.reply);
+    return data.reply || null;
   } catch (error) {
-    appendMessage("Sistema", "Errore nella comunicazione con l'artista. Riprova più tardi.");
-    console.error("Errore fetch:", error);
+    console.error("Errore API (proxy):", error);
+    return null;
   }
 }
 
-function scaricaConversazione() {
-  const blob = new Blob([chatLog.join("\n")], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `conversazione_con_${currentArtist}.txt`;
-  link.click();
-  URL.revokeObjectURL(url);
+// Sintesi vocale
+function speak(text) {
+  if (!'speechSynthesis' in window) return;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'it-IT';
+  utterance.rate = 1;
+  window.speechSynthesis.speak(utterance);
 }
 
-function condividiViaEmail() {
-  const subject = `Conversazione con ${currentArtist}`;
-  const body = encodeURIComponent(chatLog.join("\n"));
-  const mailto = `mailto:?subject=${subject}&body=${body}`;
-  window.location.href = mailto;
-}
+// Esporta conversazione
+downloadBtn?.addEventListener("click", () => {
+  const blob = new Blob([conversationHistory.join("\n\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `conversazione_${selectedArtist.replace(/\s/g, "_")}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Condivisione via email
+emailBtn?.addEventListener("click", () => {
+  const subject = `Conversazione con ${selectedArtist}`;
+  const body = encodeURIComponent(conversationHistory.join("\n\n"));
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+});
