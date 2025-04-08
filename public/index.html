@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talking Artists</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="container">
+
+    <!-- SEZIONE SELEZIONE ARTISTA -->
+    <section id="artist-selection" class="card">
+      <h1>🎨 Con chi vuoi parlare?</h1>
+      
+      <label for="artist-dropdown">Scegli un artista famoso:</label>
+      <select id="artist-dropdown">
+        <option value="">-- Seleziona --</option>
+        <option value="Leonardo da Vinci">Leonardo da Vinci</option>
+        <option value="Vincent van Gogh">Vincent van Gogh</option>
+        <option value="Frida Kahlo">Frida Kahlo</option>
+        <option value="Salvador Dalí">Salvador Dalí</option>
+        <option value="Pablo Picasso">Pablo Picasso</option>
+      </select>
+
+      <label for="artist-input">...oppure scrivi il nome:</label>
+      <input type="text" id="artist-input" placeholder="Es. Caravaggio" />
+
+      <button id="start-chat">Inizia a parlare</button>
+    </section>
+
+    <!-- SEZIONE CHAT -->
+    <section id="chat-section" class="hidden">
+      <div id="chat-box" class="chat-box"></div>
+
+      <div class="chat-controls">
+        <input type="text" id="user-input" placeholder="Scrivi qui la tua domanda..." />
+        <button id="send-btn">Chiedi</button>
+      </div>
+
+      <div class="chat-tools">
+        <label><input type="checkbox" id="voice-toggle" /> 🔊 Leggi le risposte</label>
+        <button id="download-btn">⬇️ Scarica</button>
+        <button id="email-btn">✉️ Condividi</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JS Script -->
+  <script src="app.js"></script>
+  <script src="voice.js"></script>
+  <script src="utils.js"></script>
+</body>
+</html>
