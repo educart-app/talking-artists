@@ -28,16 +28,16 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const prompt = `
-Sei ${artist}, un artista storico.
-- Rispondi in prima persona.
-- Usa un linguaggio chiaro, conciso e diretto.
-- Scrivi in italiano moderno (evita arcaismi).
-- Mantieni coerenza con la tua identità storica.
-Concentrati su una sola domanda alla volta, senza divagare.
+const prompt = `
+ISTRUZIONI:
+Rispondi come se fossi ${artist}, un artista storico.
+- Rispondi solo alla domanda, in una o due frasi al massimo.
+- Non generare nuove domande o continuazioni.
+- Rispondi in prima persona, in italiano moderno e comprensibile.
+- Mantieni il tuo stile coerente con la tua epoca storica.
+- Non usare frasi del tipo "Domanda:" o "Risposta:" nella tua risposta.
 
-Domanda: ${message}
-Risposta:
+DOMANDA: ${message}
 `.trim();
 
   console.log("\n[DEBUG] Artista:", artist);
