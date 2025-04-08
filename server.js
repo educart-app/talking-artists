@@ -13,16 +13,17 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-//// LOG
-console.log("Risposta Hugging Face:", response.data);
-console.log("API Key:", HF_API_KEY);
-
-
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
-  // Prompt ottimizzato per simulare il personaggio
+  // Prompt ottimizzato
   const prompt = `Immagina di essere ${artist}. Rispondi alla seguente domanda come faresti tu:\n${message}`;
+  
+  /// log!
+  console.log("\n[DEBUG] Artista:", artist);
+  console.log("[DEBUG] Messaggio:", message);
+  console.log("[DEBUG] Prompt inviato al modello:", prompt);
+  console.log("[DEBUG] API Key:", HF_API_KEY ? "✅ Presente" : "❌ MANCANTE");
 
   try {
     const response = await axios.post(
@@ -39,25 +40,30 @@ app.post("/api/chat", async (req, res) => {
       }
     );
 
+    console.log("[DEBUG] Risposta Hugging Face:", response.data);
+
     const generatedText = response.data?.generated_text;
 
     if (!generatedText) {
+      console.error("[DEBUG] Nessuna risposta generata dal modello.");
       throw new Error("Nessuna risposta generata dal modello.");
     }
 
     res.json({ reply: generatedText });
 
   } catch (err) {
-    console.error("Errore nella richiesta HuggingFace:", err.message);
-    res.status(500).json({ reply: "Errore nella comunicazione con l'artista. Riprova più tardi." });
+    console.error("[ERRORE] Comunicazione fallita con Hugging Face:", err.message);
+    res.status(500).json({
+      reply: "Errore nella comunicazione con l'artista. Riprova più tardi."
+    });
   }
 });
 
-// Catch-all per gestire richieste client-side
+// Catch-all per Single Page App
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server in ascolto su http://localhost:${PORT}`);
+  console.log(`\n✅ Server in ascolto su http://localhost:${PORT}`);
 });
