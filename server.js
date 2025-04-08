@@ -1,3 +1,24 @@
+const express = require("express");
+const path = require("path");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const axios = require("axios");
+require("dotenv").config();
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+const HF_API_KEY = process.env.HF_API_KEY;
+const HF_MODEL = "HuggingFaceH4/zephyr-7b-alpha";
+
+if (!HF_API_KEY) {
+  console.error("❌ Errore: HF_API_KEY non definita nel file .env");
+  process.exit(1);
+}
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
+
 app.post("/api/chat", async (req, res) => {
   const { message, artist } = req.body;
 
@@ -7,7 +28,6 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  // Prompt con istruzioni dettagliate
   const prompt = `
 Sei ${artist}, un artista storico.
 - Rispondi in prima persona.
@@ -59,4 +79,13 @@ Risposta:
       reply: `Errore nella comunicazione con ${artist}. Riprova più tardi.`
     });
   }
+});
+
+// Catch-all per SPA
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server avviato su http://localhost:${PORT}`);
 });
